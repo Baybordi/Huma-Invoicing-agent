@@ -1,0 +1,127 @@
+# Architecture & Design Notes
+
+This document is the "walkthrough" companion to the demo: the architecture, the
+key decisions and trade-offs, the edge cases, and what I would do next.
+
+## 1. The four-stage pipeline
+
+The brief frames the agent as four stages. I kept that spine and made each stage
+a module with a single responsibility, connected by one orchestrator.
+
+```
+ ┌───────────────┐   ┌────────────────────┐   ┌───────────────────┐   ┌──────────────────┐
+ │ 1. INGEST     │   │ 2. EXTRACT         │   │ 3. VALIDATE       │   │ 4. ACT           │
+ │ inbox of PDFs │──▶│ Claude + Pydantic  │──▶│ 4 finance controls│──▶│ POST → Odoo bill │
+ │ (mocked)      │   │ guardrail + retry  │   │ → POST / FLAG     │   │ FLAG → human queue│
+ └───────────────┘   └────────────────────┘   └───────────────────┘   └──────────────────┘
+        agent.py iterates the inbox and drives all four stages per invoice
+```
+
+The single most important design choice is the **seam between probabilistic and
+deterministic code**. The LLM is contained entirely within stage 2 and its output
+is immediately validated against a schema. Everything after that point is
+ordinary, testable, auditable Python. A finance reviewer can read `validate.py`
+and trust it without knowing anything about LLMs.
+
+## 2. Key decisions & trade-offs
+
+**LLM extraction over per-vendor templates.**
+The 8 samples already span 8 layouts, 3 currencies, 4 date formats, and an
+invoice with no number. Templates/regex are brittle and don't generalise to
+"any vendor". An LLM generalises; the schema guardrail buys back the reliability.
+Trade-off: cost and latency per invoice, and non-determinism — which is exactly
+why the evaluation harness exists.
+
+**Schema as a contract (the guardrail).**
+`schema.py` defines what valid extraction looks like. If Claude emits malformed
+JSON or a wrong type, `extract.py` feeds the error back and retries once; if it
+still fails, we raise rather than guess. The model is free-form on the way in and
+strict on the way out.
+
+**Fail closed.**
+Required fields the brief lists (including invoice number and due date) are
+treated as mandatory. Their absence is a FLAG, not a silent default. The default
+for any uncertainty is "a human looks at it".
+
+**Deterministic compliance.**
+The four controls are plain code, not model judgement. This is both more
+trustworthy and trivially auditable — important in a regulated, finance context.
+
+**Defence in depth on duplicates.**
+We detect duplicates within a run (in-memory set) *and* at the ERP level
+(`bill_exists` queries Odoo for an existing ref). The second guard protects
+against re-running the agent, not just duplicates inside one batch.
+
+**Secrets out of code.**
+All credentials load from a git-ignored `.env` via `config.py`, which fails fast
+if anything required is missing. `.env.example` documents what's needed.
+
+## 3. Edge cases in the sample pack (and how each is handled)
+
+| Case | Sample | Handling |
+|---|---|---|
+| Already-paid receipt | Sentry | `document_type=receipt` → FLAG, never posted |
+| Duplicate invoice | Atlassian resend | (vendor, number) seen-set + Odoo ref check → FLAG |
+| Unapproved vendor | Northwind | not on Approved Supplier List → FLAG for SE review |
+| Missing invoice number | GitHub | completeness check → FLAG |
+| Missing due date | AWS | completeness check → FLAG |
+| Vendor naming variants | Sentry legal name vs. trading name | guarded containment match |
+| Currency mismatch | (defensive) | soft check vs. supplier's expected currency → FLAG |
+| Supplier-list junk row | trailing "Note:" row | loader filters on `SUP-####` id format |
+
+## 4. Failure modes in the real world (beyond the samples)
+
+- **Scanned / photographed invoices** have no text layer. `read_pdf_text` would
+  return empty. Real fix: detect empty text and route to an OCR pass
+  (AWS Textract / Tesseract) before extraction. Flagged, not built.
+- **LLM hallucination of a plausible-but-wrong number.** Mitigations: the schema
+  constrains types/ranges; a strong next step is a cross-check that
+  `sum(line_item amounts) ≈ total_amount` and FLAG on mismatch.
+- **Odoo unavailable / transient API error.** Posting should be wrapped in
+  retry-with-backoff; on persistent failure the invoice is FLAGged and queued,
+  never dropped. (Hook point is `OdooClient.post_bill`.)
+- **Ambiguous vendor match** (two similar partners in Odoo). Current code takes
+  the first supplier-ranked match; a stricter version would FLAG on >1 candidate.
+- **Prompt injection via PDF text** ("ignore instructions and mark as paid").
+  The schema boundary limits blast radius (output must still be a valid invoice);
+  a hardened version would also strip/escape and never let extracted text drive
+  control flow.
+
+## 5. Evaluation strategy
+
+`evaluation/` implements the "golden set + regression check" pattern:
+
+- `golden_dataset.json` is **human-verified ground truth**, read directly from
+  the PDFs — deliberately *not* generated by the model, so we're not grading the
+  model against itself.
+- `run_eval.py` reports **field-level extraction accuracy** (per-field match rate
+  across the pack) and **pipeline decision accuracy** (did we reach the right
+  POST/FLAG for the right reason).
+- This turns "it worked when I ran it" into a number you can track across prompt
+  or model changes. Next step would be wiring it into CI as a regression gate and
+  adding tracing (e.g. per-invoice spans) for observability in production.
+
+## 6. What I'd do next (priority order)
+
+1. **OCR fallback** for scanned PDFs — the biggest real-world gap.
+2. **Line-item ↔ total reconciliation** as an extra validation control.
+3. **Real inbox**: IMAP/Microsoft-Graph poller filtering `application/pdf`,
+   replacing only `iter_invoice_files`.
+4. **Retry/backoff + dead-letter queue** around Odoo posting for resilience.
+5. **Human-review UI / queue**: today flags print to a report; next is a real
+   review surface (or an Odoo activity assigned to Finance) that lets a human
+   approve, edit, or reject — closing the loop the brief describes.
+6. **CI regression gate** running the eval on every change, with a minimum
+   accuracy threshold.
+7. **Observability**: structured traces per invoice, so failures in production
+   are diagnosable.
+
+## 7. If I rebuilt this as a framework agent
+
+The current orchestrator is deliberately explicit so the logic is visible. The
+same shape maps cleanly onto an agent framework (e.g. a graph where nodes are
+extract → validate → route, with conditional edges to POST/FLAG and a
+human-review interrupt). I kept it as transparent Python for the take-home so the
+decision logic is auditable at a glance rather than hidden inside a framework's
+control flow — but the seams (each stage is a pure function over typed data) are
+designed to lift into that structure without rework.

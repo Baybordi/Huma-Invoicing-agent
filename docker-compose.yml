@@ -1,0 +1,26 @@
+# Local Odoo + PostgreSQL for the demo.
+#   docker compose up -d   ->  Odoo at http://localhost:8069
+# Postgres is required by Odoo (its ORM is Postgres-specific); it is not a choice.
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data
+
+  odoo:
+    image: odoo:17
+    depends_on:
+      - db
+    ports:
+      - "8069:8069"
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: odoo
+
+volumes:
+  odoo-db-data:
