@@ -36,6 +36,8 @@ from src.extract import extract_invoice, read_pdf_text
 from src.schema import ExtractedInvoice
 from src.validate import load_approved_suppliers, validate_invoice
 
+from evaluation.llm_judge import TEXT_FIELDS, judge_text_field
+
 GOLDEN_PATH = os.path.join(os.path.dirname(__file__), "golden_dataset.json")
 FIELDS_TO_SCORE = [
     "vendor",
@@ -57,17 +59,42 @@ def _norm(value) -> str:
     return str(value).strip().lower()
 
 
-def score_extraction(predicted: ExtractedInvoice, truth: dict) -> tuple[int, int, list[str]]:
-    """Compare one extracted invoice to ground truth. Returns (correct, total, mismatches)."""
+def score_extraction(
+    predicted: ExtractedInvoice,
+    truth: dict,
+    client: Anthropic | None = None,
+    settings=None,
+    use_judge: bool = False,
+) -> tuple[int, int, list[str]]:
+    """Compare one extracted invoice to ground truth. Returns (correct, total, mismatches).
+
+    Hybrid scoring:
+      - structured fields (dates, amounts, currency, document_type) -> exact /
+        normalised match (deterministic, correct, free).
+      - text fields (vendor) -> optional LLM-as-judge for semantic equivalence,
+        so "Atlassian Pty Ltd" vs "Atlassian Pty. Limited" isn't a false miss.
+    """
     correct, total, mismatches = 0, 0, []
     for field in FIELDS_TO_SCORE:
         total += 1
         pred_val = getattr(predicted, field)
-        # Enums / dates -> string form
         pred_str = _norm(getattr(pred_val, "value", pred_val))
         truth_str = _norm(truth.get(field))
+
         if pred_str == truth_str:
             correct += 1
+            continue
+
+        # Mismatch on a text field -> ask the LLM judge before calling it wrong.
+        if use_judge and field in TEXT_FIELDS and client is not None:
+            equivalent, reason = judge_text_field(
+                field, truth.get(field), getattr(pred_val, "value", pred_val),
+                client, settings,
+            )
+            if equivalent:
+                correct += 1
+                continue
+            mismatches.append(f"{field}: got {pred_str!r}, expected {truth_str!r} (judge: {reason})")
         else:
             mismatches.append(f"{field}: got {pred_str!r}, expected {truth_str!r}")
     return correct, total, mismatches
@@ -77,6 +104,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--invoices", default="data/invoices")
     parser.add_argument("--suppliers", default="data/Approved_Supplier_List.xlsx")
+    parser.add_argument(
+        "--judge",
+        action="store_true",
+        help="Use LLM-as-judge for semantic comparison of text fields (vendor).",
+    )
     args = parser.parse_args()
 
     with open(GOLDEN_PATH) as f:
@@ -90,8 +122,9 @@ def main() -> None:
     decision_correct = 0
     seen: set = set()
 
+    mode = "with LLM-as-judge" if args.judge else "exact match"
     print("\n" + "=" * 70)
-    print("EXTRACTION & PIPELINE EVALUATION (vs. human golden set)")
+    print(f"EXTRACTION & PIPELINE EVALUATION (vs. human golden set, {mode})")
     print("=" * 70)
 
     for truth in golden:
@@ -99,7 +132,9 @@ def main() -> None:
         text = read_pdf_text(path)
         predicted = extract_invoice(text, client, settings, source_file=truth["source_file"])
 
-        correct, total, mismatches = score_extraction(predicted, truth)
+        correct, total, mismatches = score_extraction(
+            predicted, truth, client, settings, use_judge=args.judge
+        )
         total_correct += correct
         total_fields += total
 
@@ -138,3 +173,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    

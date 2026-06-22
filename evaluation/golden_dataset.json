@@ -10,7 +10,7 @@
       "total_amount": 3072.24,
       "currency": "USD",
       "document_type": "invoice",
-      "expected_decision": "FLAG",
+      "expected_decision": "REVIEW",
       "expected_reason_contains": "due_date",
       "note": "Auto-charged to card; no due date printed -> fails completeness on due_date."
     },
@@ -49,7 +49,7 @@
       "total_amount": 312.00,
       "currency": "USD",
       "document_type": "receipt",
-      "expected_decision": "FLAG",
+      "expected_decision": "REJECT",
       "expected_reason_contains": "receipt",
       "note": "Already-paid receipt -> informational, never auto-posted."
     },
@@ -75,7 +75,7 @@
       "total_amount": 2199.00,
       "currency": "GBP",
       "document_type": "invoice",
-      "expected_decision": "FLAG",
+      "expected_decision": "REJECT",
       "expected_reason_contains": "Approved Supplier List",
       "note": "Vendor not on approved list -> SE review."
     },
@@ -88,7 +88,7 @@
       "total_amount": 6875.00,
       "currency": "USD",
       "document_type": "invoice",
-      "expected_decision": "FLAG",
+      "expected_decision": "REJECT",
       "expected_reason_contains": "Duplicate",
       "note": "Same invoice number as 03 -> duplicate (assuming 03 processed first)."
     },
@@ -101,7 +101,7 @@
       "total_amount": 6555.00,
       "currency": "USD",
       "document_type": "invoice",
-      "expected_decision": "FLAG",
+      "expected_decision": "REVIEW",
       "expected_reason_contains": "invoice_number",
       "note": "No invoice number printed -> fails completeness."
     }
