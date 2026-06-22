@@ -1,9 +1,9 @@
 ﻿source_file,vendor,invoice_number,invoice_date,due_date,total_amount,currency,payment_terms,document_type,line_item_count,decision,odoo_status,odoo_id,reasons
-01_AWS.pdf,Amazon Web Services EMEA SARL,EUINGB26-2041785,2026-04-30,,3072.24,USD,Charged to card ending 4421,receipt,4,REJECT,not created,,"Missing mandatory field(s): due_date | Document is a receipt (already paid) — informational only, no bill to post."
-02_GoogleCloud.pdf,Google Cloud EMEA Limited,3920184473,2026-04-30,2026-05-30,3813.8,EUR,Net 30,invoice,3,REVIEW,not created,,A bill with ref '3920184473' already exists for this vendor in Odoo — skipped to avoid double entry.
-03_Atlassian.pdf,Atlassian Pty Ltd,AT-558210,2026-04-17,2026-05-17,6875.0,USD,Net 30,invoice,2,REVIEW,not created,,A bill with ref 'AT-558210' already exists for this vendor in Odoo — skipped to avoid double entry.
-04_Sentry.pdf,"Functional Software, Inc. (Sentry)",2026-3391,2026-04-12,,312.0,USD,Paid,receipt,1,REJECT,not created,,"Missing mandatory field(s): due_date | Document is a receipt (already paid) — informational only, no bill to post."
-05_Communere.pdf,Communere Ltd,CMN-0091,2026-05-01,2026-05-15,6408.0,GBP,Net 14,invoice,2,REVIEW,not created,,A bill with ref 'CMN-0091' already exists for this vendor in Odoo — skipped to avoid double entry.
-06_Northwind.pdf,Northwind Office Supplies Ltd,7741,2026-04-28,2026-05-28,2199.0,GBP,Net 30,invoice,3,REJECT,not created,,Vendor 'Northwind Office Supplies Ltd' is not on the Approved Supplier List — route to Supplier Evaluation (SE) review.
-07_Atlassian_resend.pdf,Atlassian Pty Ltd,AT-558210,2026-04-17,2026-05-17,6875.0,USD,Net 30,invoice,2,REJECT,not created,,Duplicate: invoice AT-558210 from Atlassian Pty Ltd has already been processed this run.
-08_GitHub_missing_number.pdf,"GitHub, Inc.",,2026-05-03,2026-06-02,6555.0,USD,Net 30,invoice,2,REVIEW,draft,11,Missing mandatory field(s): invoice_number
+01_AWS.pdf,Amazon Web Services EMEA SARL,EUINGB26-2041785,2026-04-30,,3072.24,USD,Charged to card,receipt,4,REJECT,dry-run (not sent),,"Missing mandatory field(s): due_date | Document is a receipt (already paid) — informational only, no bill to post."
+02_GoogleCloud.pdf,Google Cloud EMEA Limited,3920184473,2026-04-30,2026-05-30,3813.8,EUR,Net 30,invoice,3,POST,dry-run (not sent),,
+03_Atlassian.pdf,Atlassian Pty Ltd,AT-558210,2026-04-17,2026-05-17,6875.0,USD,Net 30,invoice,2,POST,dry-run (not sent),,
+04_Sentry.pdf,"Functional Software, Inc. (Sentry)",2026-3391,2026-04-12,,312.0,USD,Paid — Visa ending 4421,receipt,1,REJECT,dry-run (not sent),,"Missing mandatory field(s): due_date | Document is a receipt (already paid) — informational only, no bill to post."
+05_Communere.pdf,Communere Ltd,CMN-0091,2026-05-01,2026-05-15,6408.0,GBP,Net 14,invoice,2,POST,dry-run (not sent),,
+06_Northwind.pdf,Northwind Office Supplies Ltd,7741,2026-04-28,2026-05-28,2199.0,GBP,Net 30,invoice,3,REJECT,dry-run (not sent),,Vendor 'Northwind Office Supplies Ltd' is not on the Approved Supplier List — route to Supplier Evaluation (SE) review.
+07_Atlassian_resend.pdf,Atlassian Pty Ltd,AT-558210,2026-04-17,2026-05-17,6875.0,USD,Net 30,invoice,2,REJECT,dry-run (not sent),,Duplicate: invoice AT-558210 from Atlassian Pty Ltd has already been processed this run.
+08_GitHub_missing_number.pdf,"GitHub, Inc.",,2026-05-03,2026-06-02,6555.0,USD,Net 30,invoice,2,REVIEW,dry-run (not sent),,Missing mandatory field(s): invoice_number

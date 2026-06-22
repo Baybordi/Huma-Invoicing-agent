@@ -263,6 +263,17 @@ def main() -> None:
         default="run_report.csv",
         help="Path to write the human-readable CSV report (default: run_report.csv).",
     )
+    parser.add_argument(
+        "--email-report",
+        action="store_true",
+        help="Email the CSV report to recipients via Gmail after the run.",
+    )
+    parser.add_argument(
+        "--recipients",
+        default=None,
+        help="Comma-separated email addresses for --email-report "
+        "(defaults to GMAIL_ADDRESS).",
+    )
     args = parser.parse_args()
 
     outcomes = run(args.invoices, args.suppliers, dry_run=args.dry_run)
@@ -275,8 +286,35 @@ def main() -> None:
     if args.report:
         write_csv_report(outcomes, args.report)
 
+    if args.email_report:
+        from .config import load_settings
+        from .notifier import send_report
+
+        settings = load_settings()
+        if not settings.gmail_address or not settings.gmail_app_password:
+            logger.warning("Email skipped: set GMAIL_ADDRESS and GMAIL_APP_PASSWORD in .env")
+        else:
+            recipients = (
+                [r.strip() for r in args.recipients.split(",")]
+                if args.recipients
+                else [settings.gmail_address]
+            )
+            posted = sum(1 for o in outcomes if o.odoo_status == "posted")
+            drafts = sum(1 for o in outcomes if o.odoo_status == "draft")
+            rejected = sum(1 for o in outcomes if o.decision == "REJECT")
+            summary = (
+                f"Summary: {len(outcomes)} processed | {posted} posted | "
+                f"{drafts} drafts for review | {rejected} rejected."
+            )
+            send_report(
+                settings.gmail_address,
+                settings.gmail_app_password,
+                recipients,
+                args.report,
+                summary,
+            )
+
 
 if __name__ == "__main__":
     main()
-    
     
