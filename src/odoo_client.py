@@ -112,8 +112,20 @@ class OdooClient:
         )
 
     def _audit_note(self, bill_id: int, body: str) -> None:
-        """Audit-log control: leave a transparent trail in the record's chatter."""
-        self._execute("account.move", "message_post", [bill_id], body=body)
+        """Audit-log control: leave a transparent trail in the record's chatter.
+
+        This Odoo/XML-RPC path escapes HTML, so we send plain text with real line
+        breaks (\\n). Odoo's chatter converts newlines to line breaks on display,
+        so the note reads cleanly without any visible markup.
+        """
+        self._execute(
+            "account.move",
+            "message_post",
+            [bill_id],
+            body=body,
+            message_type="comment",
+            subtype_xmlid="mail.mt_note",
+        )
 
     def post_bill(self, invoice: ExtractedInvoice) -> PostResult:
         """POST outcome: create the bill AND confirm it (action_post), so it
@@ -171,13 +183,13 @@ class OdooClient:
 
         draft_id = self._create_bill(vendor_id, invoice)  # left as draft on purpose
 
-        reason_html = "<br/>".join(f"• {r}" for r in reasons)
+        reason_lines = "\n".join(f"  - {r}" for r in reasons)
         self._audit_note(
             draft_id,
-            f"<b>Held for human review by the Invoicing Agent</b><br/>"
-            f"Source: {invoice.source_file or 'emailed PDF'}<br/>"
-            f"Reason(s):<br/>{reason_html}<br/>"
-            f"Left in <b>draft</b> — please review before confirming.",
+            f"Held for human review by the Invoicing Agent.\n"
+            f"Source: {invoice.source_file or 'emailed PDF'}\n"
+            f"Reason(s):\n{reason_lines}\n"
+            f"Left in draft — please review before confirming.",
         )
 
         logger.info("Created review draft %s for %s", draft_id, invoice.vendor)

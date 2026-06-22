@@ -40,6 +40,10 @@ class Settings:
     odoo_username: str
     odoo_api_key: str
 
+    # Optional — only needed when polling a real inbox instead of the folder mock.
+    gmail_address: str | None
+    gmail_app_password: str | None
+
 
 def load_settings() -> Settings:
     return Settings(
@@ -51,4 +55,6 @@ def load_settings() -> Settings:
         odoo_db=_require("ODOO_DB"),
         odoo_username=_require("ODOO_USERNAME"),
         odoo_api_key=_require("ODOO_API_KEY"),
+        gmail_address=os.getenv("GMAIL_ADDRESS"),
+        gmail_app_password=os.getenv("GMAIL_APP_PASSWORD"),
     )
