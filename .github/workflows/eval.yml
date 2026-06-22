@@ -1,0 +1,42 @@
+# CI regression gate for the invoicing agent.
+#
+# On every push / pull request, this runs the golden-set evaluation and FAILS
+# the build if extraction or decision accuracy drops below the thresholds below.
+# This is what stops a prompt or model change silently regressing quality.
+#
+# Requires one repository secret:  ANTHROPIC_API_KEY
+# (Settings > Secrets and variables > Actions > New repository secret)
+
+name: eval-regression-gate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}   # allow manual runs from the Actions tab
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run evaluation with regression gate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python -m evaluation.run_eval \
+            --min-extraction 95 \
+            --min-decision 80

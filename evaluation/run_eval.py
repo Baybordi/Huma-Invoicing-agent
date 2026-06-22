@@ -25,6 +25,7 @@ import argparse
 import json
 import os
 import sys
+import time
 
 # Allow running as a script from repo root.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -109,6 +110,18 @@ def main() -> None:
         action="store_true",
         help="Use LLM-as-judge for semantic comparison of text fields (vendor).",
     )
+    parser.add_argument(
+        "--min-extraction",
+        type=float,
+        default=None,
+        help="Regression gate: fail (exit 1) if extraction accuracy %% is below this.",
+    )
+    parser.add_argument(
+        "--min-decision",
+        type=float,
+        default=None,
+        help="Regression gate: fail (exit 1) if decision accuracy %% is below this.",
+    )
     args = parser.parse_args()
 
     with open(GOLDEN_PATH) as f:
@@ -121,6 +134,7 @@ def main() -> None:
     total_correct = total_fields = 0
     decision_correct = 0
     seen: set = set()
+    total_latency = 0.0  # seconds spent in extraction across all invoices
 
     mode = "with LLM-as-judge" if args.judge else "exact match"
     print("\n" + "=" * 70)
@@ -130,7 +144,9 @@ def main() -> None:
     for truth in golden:
         path = os.path.join(args.invoices, truth["source_file"])
         text = read_pdf_text(path)
+        t0 = time.perf_counter()
         predicted = extract_invoice(text, client, settings, source_file=truth["source_file"])
+        total_latency += time.perf_counter() - t0
 
         correct, total, mismatches = score_extraction(
             predicted, truth, client, settings, use_judge=args.judge
@@ -163,12 +179,40 @@ def main() -> None:
         )
 
     n = len(golden)
+    extraction_pct = 100 * total_correct / total_fields
+    decision_pct = 100 * decision_correct / n
+    avg_latency = total_latency / n
+
     print("\n" + "-" * 70)
     print(f"Field-level extraction accuracy : {total_correct}/{total_fields} "
-          f"({100*total_correct/total_fields:.1f}%)")
+          f"({extraction_pct:.1f}%)")
     print(f"Pipeline decision accuracy      : {decision_correct}/{n} "
-          f"({100*decision_correct/n:.1f}%)")
-    print("=" * 70 + "\n")
+          f"({decision_pct:.1f}%)")
+    print(f"Avg extraction latency / invoice: {avg_latency:.2f}s")
+    print(f"Total extraction time           : {total_latency:.1f}s for {n} invoices")
+    print("=" * 70)
+
+    # --- Regression gate -------------------------------------------------------
+    # If thresholds are supplied (as in CI), exit non-zero on a regression so the
+    # pipeline blocks the change. No threshold supplied -> report-only mode.
+    failures = []
+    if args.min_extraction is not None and extraction_pct < args.min_extraction:
+        failures.append(
+            f"extraction {extraction_pct:.1f}% < required {args.min_extraction:.1f}%"
+        )
+    if args.min_decision is not None and decision_pct < args.min_decision:
+        failures.append(
+            f"decision {decision_pct:.1f}% < required {args.min_decision:.1f}%"
+        )
+
+    if failures:
+        print("\n❌ REGRESSION GATE FAILED:")
+        for f in failures:
+            print(f"   - {f}")
+        print()
+        sys.exit(1)
+    elif args.min_extraction is not None or args.min_decision is not None:
+        print("\n✅ Regression gate passed.\n")
 
 
 if __name__ == "__main__":
