@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoicing Agent — Evaluation Report</title>
+<style>
+  :root {
+    --ink:#1a1a1a; --muted:#6b6b6b; --line:#e3e0d8; --paper:#faf8f3;
+    --accent:#1f3a5f;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:Georgia, 'Times New Roman', serif; line-height:1.5;
+  }
+  .wrap { max-width:1000px; margin:0 auto; padding:48px 28px 80px; }
+  .eyebrow {
+    font-family:'Courier New', monospace; font-size:12px; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  h1 { font-size:34px; margin:6px 0 4px; letter-spacing:-.01em; }
+  .sub { color:var(--muted); font-size:15px; margin-bottom:32px; }
+  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:14px; }
+  .card {
+    border:1px solid var(--line); background:#fff; padding:18px 20px;
+  }
+  .card .label {
+    font-family:'Courier New', monospace; font-size:11px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:8px;
+  }
+  .card .figure { font-size:30px; font-weight:700; font-family:'Courier New',monospace; }
+  .card .detail { font-size:13px; color:var(--muted); margin-top:4px; }
+  .gatebar {
+    border:1px solid var(--line); background:#fff; padding:14px 20px;
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:34px;
+    font-size:14px;
+  }
+  .gate { font-family:'Courier New',monospace; font-weight:700; padding:3px 10px; font-size:13px; }
+  .gate-pass { color:#0f5132; background:#d1e7dd; }
+  .gate-fail { color:#842029; background:#f8d7da; }
+  .gate-na { color:#41464b; background:#e2e3e5; }
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); }
+  th {
+    text-align:left; font-family:'Courier New',monospace; font-size:11px;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+    padding:11px 12px; border-bottom:2px solid var(--line);
+  }
+  td { padding:11px 12px; border-bottom:1px solid var(--line); font-size:14px; vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  .mono { font-family:'Courier New',monospace; font-size:13px; }
+  .center { text-align:center; }
+  .reasons { font-size:13px; color:#444; max-width:320px; }
+  .pill {
+    font-family:'Courier New',monospace; font-size:11px; font-weight:700;
+    padding:2px 9px; letter-spacing:.04em;
+  }
+  .foot { margin-top:26px; font-size:12px; color:var(--muted); font-family:'Courier New',monospace; }
+  .rule { height:2px; background:var(--accent); width:54px; margin:18px 0 26px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="eyebrow">Automated Invoicing Agent · Evaluation Control Sheet</div>
+    <h1>Extraction &amp; Decision Report</h1>
+    <div class="sub">Measured against a human-verified golden set · scoring mode: exact match</div>
+    <div class="rule"></div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="label">Extraction accuracy</div>
+        <div class="figure">98.2%</div>
+        <div class="detail">55/56 fields correct</div>
+      </div>
+      <div class="card">
+        <div class="label">Decision accuracy</div>
+        <div class="figure">87.5%</div>
+        <div class="detail">7/8 invoices routed correctly</div>
+      </div>
+      <div class="card">
+        <div class="label">Avg latency / invoice</div>
+        <div class="figure">2.83s</div>
+        <div class="detail">extraction call time</div>
+      </div>
+    </div>
+
+    <div class="gatebar">
+      <span>Regression gate</span>
+      <span class="gate gate-pass">PASSED</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Invoice</th><th>Vendor</th><th>Fields</th>
+          <th>Decision</th><th>Expected</th><th>Match</th><th>Reasons / notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mono">01_AWS.pdf</td>
+          <td>Amazon Web Services EMEA SARL</td>
+          <td class="mono center">6/7</td>
+          <td><span class="pill" style="color:#842029;background:#f8d7da">REJECT</span></td>
+          <td><span class="pill" style="color:#664d03;background:#fff3cd">REVIEW</span></td>
+          <td class="center" style="color:#842029;font-weight:700">✗</td>
+          <td class="reasons">Missing mandatory field(s): due_date<br>Document is a receipt (already paid) — informational only, no bill to post.</td>
+        </tr>
+        <tr>
+          <td class="mono">02_GoogleCloud.pdf</td>
+          <td>Google Cloud EMEA Limited</td>
+          <td class="mono center">7/7</td>
+          <td><span class="pill" style="color:#0f5132;background:#d1e7dd">POST</span></td>
+          <td><span class="pill" style="color:#0f5132;background:#d1e7dd">POST</span></td>
+          <td class="center" style="color:#0f5132;font-weight:700">✓</td>
+          <td class="reasons">—</td>
+        </tr>
+        <tr>
+          <td class="mono">03_Atlassian.pdf</td>
+          <td>Atlassian Pty Ltd</td>
+          <td class="mono center">7/7</td>
+          <td><span class="pill" style="color:#0f5132;background:#d1e7dd">POST</span></td>
+          <td><span class="pill" style="color:#0f5132;background:#d1e7dd">POST</span></td>
+          <td class="center" style="color:#0f5132;font-weight:700">✓</td>
+          <td class="reasons">—</td>
+        </tr>
+        <tr>
+          <td class="mono">04_Sentry.pdf</td>
+          <td>Functional Software, Inc. (Sentry)</td>
+          <td class="mono center">7/7</td>
+          <td><span class="pill" style="color:#842029;background:#f8d7da">REJECT</span></td>
+          <td><span class="pill" style="color:#842029;background:#f8d7da">REJECT</span></td>
+          <td class="center" style="color:#0f5132;font-weight:700">✓</td>
+          <td class="reasons">Missing mandatory field(s): due_date<br>Document is a receipt (already paid) — informational only, no bill to post.</td>
+        </tr>
+        <tr>
+          <td class="mono">05_Communere.pdf</td>
+          <td>Communere Ltd</td>
+          <td class="mono center">7/7</td>
+          <td><span class="pill" style="color:#0f5132;background:#d1e7dd">POST</span></td>
+          <td><span class="pill" style="color:#0f5132;background:#d1e7dd">POST</span></td>
+          <td class="center" style="color:#0f5132;font-weight:700">✓</td>
+          <td class="reasons">—</td>
+        </tr>
+        <tr>
+          <td class="mono">06_Northwind.pdf</td>
+          <td>Northwind Office Supplies Ltd</td>
+          <td class="mono center">7/7</td>
+          <td><span class="pill" style="color:#842029;background:#f8d7da">REJECT</span></td>
+          <td><span class="pill" style="color:#842029;background:#f8d7da">REJECT</span></td>
+          <td class="center" style="color:#0f5132;font-weight:700">✓</td>
+          <td class="reasons">Vendor &#x27;Northwind Office Supplies Ltd&#x27; is not on the Approved Supplier List — route to Supplier Evaluation (SE) review.</td>
+        </tr>
+        <tr>
+          <td class="mono">07_Atlassian_resend.pdf</td>
+          <td>Atlassian Pty Ltd</td>
+          <td class="mono center">7/7</td>
+          <td><span class="pill" style="color:#842029;background:#f8d7da">REJECT</span></td>
+          <td><span class="pill" style="color:#842029;background:#f8d7da">REJECT</span></td>
+          <td class="center" style="color:#0f5132;font-weight:700">✓</td>
+          <td class="reasons">Duplicate: invoice AT-558210 from Atlassian Pty Ltd has already been processed this run.</td>
+        </tr>
+        <tr>
+          <td class="mono">08_GitHub_missing_number.pdf</td>
+          <td>GitHub, Inc.</td>
+          <td class="mono center">7/7</td>
+          <td><span class="pill" style="color:#664d03;background:#fff3cd">REVIEW</span></td>
+          <td><span class="pill" style="color:#664d03;background:#fff3cd">REVIEW</span></td>
+          <td class="center" style="color:#0f5132;font-weight:700">✓</td>
+          <td class="reasons">Missing mandatory field(s): invoice_number</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="foot">Generated 2026-06-22 13:31 · Huma invoicing agent · golden-set evaluation</div>
+  </div>
+</body>
+</html>

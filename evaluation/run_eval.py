@@ -122,6 +122,13 @@ def main() -> None:
         default=None,
         help="Regression gate: fail (exit 1) if decision accuracy %% is below this.",
     )
+    parser.add_argument(
+        "--html",
+        nargs="?",
+        const="evaluation/eval_report.html",
+        default=None,
+        help="Write a standalone HTML report (default path: evaluation/eval_report.html).",
+    )
     args = parser.parse_args()
 
     with open(GOLDEN_PATH) as f:
@@ -135,6 +142,7 @@ def main() -> None:
     decision_correct = 0
     seen: set = set()
     total_latency = 0.0  # seconds spent in extraction across all invoices
+    html_rows: list[dict] = []  # collected for the optional HTML report
 
     mode = "with LLM-as-judge" if args.judge else "exact match"
     print("\n" + "=" * 70)
@@ -167,6 +175,16 @@ def main() -> None:
         if decision_ok and reason_ok:
             decision_correct += 1
 
+        html_rows.append({
+            "source_file": truth["source_file"],
+            "vendor": predicted.vendor,
+            "extraction_str": f"{correct}/{total}",
+            "decision": result.decision.value,
+            "expected": truth["expected_decision"],
+            "ok": bool(decision_ok and reason_ok),
+            "reasons": result.reasons,
+        })
+
         flag = "✓" if (decision_ok and reason_ok) else "✗"
         print(f"\n{flag} {truth['source_file']}")
         print(f"    extraction: {correct}/{total} fields correct")
@@ -191,6 +209,22 @@ def main() -> None:
     print(f"Avg extraction latency / invoice: {avg_latency:.2f}s")
     print(f"Total extraction time           : {total_latency:.1f}s for {n} invoices")
     print("=" * 70)
+
+    # --- Optional HTML report --------------------------------------------------
+    if args.html:
+        from evaluation.html_report import render_html_report
+
+        gate_passed = None
+        if args.min_extraction is not None or args.min_decision is not None:
+            gate_passed = not (
+                (args.min_extraction is not None and extraction_pct < args.min_extraction)
+                or (args.min_decision is not None and decision_pct < args.min_decision)
+            )
+        render_html_report(
+            html_rows, total_correct, total_fields, decision_correct, n,
+            avg_latency, gate_passed, mode, args.html,
+        )
+        print(f"Wrote HTML report to {args.html}")
 
     # --- Regression gate -------------------------------------------------------
     # If thresholds are supplied (as in CI), exit non-zero on a regression so the
@@ -217,4 +251,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    
